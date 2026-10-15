@@ -68,7 +68,11 @@ public class ArchiveRepositoryRemover extends AbstractScheduledTask {
     File targetDir = config.getArchiveFolder().toFile();
     long nowTimestamp = TimeMachine.now().toEpochMilli();
 
-    for (File repo : targetDir.listFiles()) {
+    File[] repoFiles = targetDir.listFiles();
+    if (repoFiles == null) {
+      return files;
+    }
+    for (File repo : repoFiles) {
       try {
         long lastModifiedTime = Files.getLastModifiedTime(repo.toPath()).toMillis();
         long expiryTimestamp = lastModifiedTime + duration;

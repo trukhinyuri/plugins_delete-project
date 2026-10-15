@@ -165,6 +165,24 @@ public class DeleteTrashFoldersTest {
   }
 
   @Test
+  public void shouldDeleteMultipleTrashRepositoriesAndIgnoreMissingCustomTrashFolder()
+      throws Exception {
+    try (FileRepository repo1 = createRepositoryToDelete("repoOne.1234567890123.deleted");
+        FileRepository repo2 = createRepositoryToDelete("repoTwo.1234567890123.deleted")) {
+      Files.createDirectories(repo1.getDirectory().toPath().resolve("sub.1234567890123.deleted"));
+      trashFolders.run();
+      assertThatRepositoryIsDeleted(repo1);
+      assertThatRepositoryIsDeleted(repo2);
+    }
+
+    when(pluginCfg.getTrashFolderName()).thenReturn("missing-trash-folder");
+    DeleteTrashFolders customTrashFolders =
+        new DeleteTrashFolders(
+            sitePaths, cfg, repositoryCfg, pluginCfg, workQueue, DELETE_PROJECT_PLUGIN);
+    customTrashFolders.run();
+  }
+
+  @Test
   public void shouldStopProcessingWhenTimeoutExceeded() throws IOException {
     when(pluginCfg.getDeleteTrashFoldersMaxAllowedTime()).thenReturn(0L);
 

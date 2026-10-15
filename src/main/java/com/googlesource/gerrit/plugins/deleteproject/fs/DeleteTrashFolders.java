@@ -26,13 +26,15 @@ import com.google.inject.Inject;
 import com.googlesource.gerrit.plugins.deleteproject.Configuration;
 import java.io.IOException;
 import java.nio.file.FileVisitOption;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Iterator;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.util.EnumSet;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
-import java.util.stream.Stream;
 import org.eclipse.jgit.lib.Config;
 
 public class DeleteTrashFolders extends AbstractScheduledTask {
@@ -125,16 +127,27 @@ public class DeleteTrashFolders extends AbstractScheduledTask {
   }
 
   private void evaluateIfTrash(Path folder, Stopwatch stopWatch) {
-    try (Stream<Path> dir = Files.walk(folder, FileVisitOption.FOLLOW_LINKS)) {
-      Iterator<Path> it =
-          dir.filter(Files::isDirectory).filter(TrashFolderPredicate::match).iterator();
-
-      while (it.hasNext()) {
-        if (exceededMaxAllowedTime(folder, stopWatch)) {
-          break;
-        }
-        recursivelyDelete(it.next());
-      }
+    if (!Files.exists(folder)) {
+      return;
+    }
+    try {
+      Files.walkFileTree(
+          folder,
+          EnumSet.of(FileVisitOption.FOLLOW_LINKS),
+          Integer.MAX_VALUE,
+          new SimpleFileVisitor<Path>() {
+            @Override
+            public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
+              if (exceededMaxAllowedTime(folder, stopWatch)) {
+                return FileVisitResult.TERMINATE;
+              }
+              if (!dir.equals(folder) && TrashFolderPredicate.match(dir)) {
+                recursivelyDelete(dir);
+                return FileVisitResult.SKIP_SUBTREE;
+              }
+              return FileVisitResult.CONTINUE;
+            }
+          });
     } catch (IOException e) {
       log.atSevere().withCause(e).log("Failed to evaluate %s", folder);
     }

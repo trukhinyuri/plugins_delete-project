@@ -136,6 +136,15 @@ public class ArchiveRepositoryRemoverTest {
   }
 
   @Test
+  public void cleanUpOverdueRepositoriesWhenArchiveFolderDoesNotExist() {
+    when(configMock.getArchiveFolder())
+        .thenReturn(tempFolder.getRoot().toPath().resolve("nonexistent-archive"));
+    ArchiveRepositoryRemover missingDirRemover =
+        new ArchiveRepositoryRemover(workQueueMock, configMock, PLUGIN_NAME);
+    missingDirRemover.run();
+  }
+
+  @Test
   public void testRepositoryCleanupWorkerFutureIsNullOnStop() {
     remover.start();
     assertThat(remover.getWorkerFuture()).isNotNull();
